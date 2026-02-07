@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FES TMA 2 – ATC Radar Simulation</title>
+<style>
+body { margin:0; background:#111; color:#0f0; font-family: monospace; }
+#radar { background:#000; display:block; margin:auto; }
+.panel {
+  position:fixed; right:10px; top:10px;
+  background:#111; padding:10px; border:1px solid #0f0;
+  width:260px;
+}
+select, input, button {
+  width:100%; margin-top:5px;
+  background:#000; color:#0f0; border:1px solid #0f0;
+}
+.conflict { color:red; font-weight:bold; }
+</style>
+</head>
+
+<body>
+
+<canvas id="radar" width="800" height="800"></canvas>
+
+<div class="panel">
+  <h3>FES TMA 2 – Controller</h3>
+  <select id="aircraftList"></select>
+  <input id="heading" placeholder="Heading (°)">
+  <input id="speed" placeholder="Speed (kt)">
+  <input id="level" placeholder="Flight Level">
+  <button onclick="issueInstruction()">ISSUE</button>
+  <div id="status"></div>
+</div>
+
+<script>
+const canvas = document.getElementById("radar");
+const ctx = canvas.getContext("2d");
+const center = {x:400, y:400};
+
+let aircraft = [];
+const maxAC = 10;
+
+function spawnAircraft(i){
+  return {
+    id: "RAM" + (100 + i),
+    x: Math.random()*800,
+    y: Math.random()*800,
+    heading: Math.random()*360,
+    speed: 2 + Math.random()*2,
+    level: [60,70,80,90][Math.floor(Math.random()*4)],
+    conflict:false
+  };
+}
+
+for(let i=0;i<maxAC;i++) aircraft.push(spawnAircraft(i));
+
+function drawRadar(){
+  ctx.clearRect(0,0,800,800);
+
+  ctx.strokeStyle="#033";
+  for(let r=100;r<=400;r+=100){
+    ctx.beginPath();
+    ctx.arc(center.x,center.y,r,0,Math.PI*2);
+    ctx.stroke();
+  }
+
+  aircraft.forEach(a=>{
+    a.x += Math.cos(a.heading*Math.PI/180)*a.speed;
+    a.y += Math.sin(a.heading*Math.PI/180)*a.speed;
+
+    if(a.x<0) a.x=800; if(a.y<0) a.y=800;
+    if(a.x>800) a.x=0; if(a.y>800) a.y=0;
+
+    ctx.fillStyle = a.conflict ? "red" : "#0f0";
+    ctx.fillRect(a.x-3,a.y-3,6,6);
+
+    ctx.fillText(
+      `${a.id} FL${a.level}`,
+      a.x+5,a.y-5
+    );
+  });
+
+  detectConflicts();
+}
+
+function detectConflicts(){
+  aircraft.forEach(a=>a.conflict=false);
+
+  for(let i=0;i<aircraft.length;i++){
+    for(let j=i+1;j<aircraft.length;j++){
+      let dx=aircraft[i].x-aircraft[j].x;
+      let dy=aircraft[i].y-aircraft[j].y;
+      let d=Math.sqrt(dx*dx+dy*dy);
+
+      let vSep=Math.abs(aircraft[i].level-aircraft[j].level);
+
+      if(d<50 && vSep<10){
+        aircraft[i].conflict=true;
+        aircraft[j].conflict=true;
+      }
+    }
+  }
+}
+
+function updateList(){
+  let sel=document.getElementById("aircraftList");
+  sel.innerHTML="";
+  aircraft.forEach((a,i)=>{
+    let o=document.createElement("option");
+    o.value=i;
+    o.text=a.id;
+    sel.appendChild(o);
+  });
+}
+
+function issueInstruction(){
+  let a=aircraft[document.getElementById("aircraftList").value];
+  let h=document.getElementById("heading").value;
+  let s=document.getElementById("speed").value;
+  let l=document.getElementById("level").value;
+
+  if(h) a.heading=parseFloat(h);
+  if(s) a.speed=parseFloat(s)/100;
+  if(l) a.level=parseInt(l);
+
+  document.getElementById("status").innerText="Instruction issued";
+}
+
+updateList();
+setInterval(drawRadar,50);
+</script>
+
+</body>
+</html>
